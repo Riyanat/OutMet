@@ -30,7 +30,7 @@ public class Alert {
 	}
 
 	public Alert(Date startTime, Date endTime, String key, String name,
-			String category, String sourceIP,  String sourcePort, String destIP,
+			String category, String sourceIP, String sourcePort, String destIP,
 			String destPort) {
 		this.startTime = startTime;
 		this.endTime = endTime;
@@ -41,13 +41,9 @@ public class Alert {
 		this.sourcePort = sourcePort;
 		this.destIP = destIP;
 		this.destPort = destPort;
-		
-		
-
 	}
 
 	public Alert clone() {
-		// TODO Auto-generated method stub
 		Alert a = new Alert();
 		a.setName(name);
 		a.setKey(key);
@@ -144,7 +140,6 @@ public class Alert {
 		return this.sourcePort;
 	}
 
-	// TODO : Create Method GetPortRange
 	public void setDestPort(String destPort) {
 		try {
 			int test = Integer.parseInt(destPort);

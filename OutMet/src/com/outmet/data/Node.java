@@ -2,19 +2,21 @@ package com.outmet.data;
 
 public class Node<E> {
 
-	/*
-	 * key cannot have spaces
-	 * label can have spaces
-	 * 
-	 */
+
 	private E element;
-	private String key; 
-	private String label;
-	private double weight;
-	/**
-	 * @param args
-	 */
 	
+	/**
+	 * Unique key of node. Whitespace not allowed.
+	 */
+	private String key;
+	
+	/**
+	 * 	Label of node. Whitespace allowed.
+	 */
+	private String label;
+	
+	private double weight;
+
 	public Node(){
 		
 	}
@@ -33,7 +35,7 @@ public class Node<E> {
 	}
 
 	public void setKey(String key) {
-		// Check if key has spaces, if so delete//
+		key.replaceAll(" ", "---");
 		this.key = key;
 	}
 

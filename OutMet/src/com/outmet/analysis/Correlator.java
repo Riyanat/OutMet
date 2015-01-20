@@ -23,10 +23,11 @@ import com.outmet.data.RecentActivityComparator;
  * 
  * ---------------------------------------------------------------------------
  * 
- * Summary: Receives a List of sorted Alert Objects, A. Compares each Alert a,
- * with a set of Alert objects a_i \in A where a_i mets a set of minimum
- * candidate requirements. If a and a_i have a correlation metric greater than a
- * threshold, both are considered correlated.
+ * Summary: Receives a List of sorted (by time) Alert Objects A = {a_1, a_2,
+ * ..., a_n}. Compares each Alert a_i, with a set of Alert objects a_j \in A
+ * where a_i meets a set of minimum candidate requirements. If a_i and a_j have
+ * a correlation metric greater than threshold t, both are considered
+ * correlated, transformed into nodes where an edge is drawn between them.
  * 
  * 
  * 
@@ -88,6 +89,9 @@ public class Correlator {
 
 	private int total;
 
+	/**
+	 * Default constructor with default settings.
+	 */
 	public Correlator() {
 		graphs = new ArrayList<Graph<Alert>>();
 		queue = new PriorityQueue<Graph<Alert>>(100,
@@ -102,6 +106,11 @@ public class Correlator {
 
 	}
 
+	/**
+	 * Runs the correlation component and logs meta-alert summaries.
+	 * 
+	 * @param alertStream
+	 */
 	public void run(List<Alert> alertStream) {
 		for (Alert alert : alertStream) {
 			if (graphs.isEmpty() || queue.isEmpty()) {
@@ -113,6 +122,9 @@ public class Correlator {
 		printStatistics();
 	}
 
+	/**
+	 * Creates a single-node graph where 'alert' is the only node in the graph.
+	 */
 	private void createGraph(Alert alert) {
 		Node<Alert> node = new Node<Alert>();
 		node.setElement(alert);
@@ -125,12 +137,13 @@ public class Correlator {
 		graph.addNode(node);
 		graphs.add(graph);
 		updateQueue(graph);
-		
+
 		total++;
 	}
 
 	/**
-	 * Updates the recent activity outdated graphs and adding latest graph.
+	 * Updates the queue of alerts used to find candidate correlations for newer
+	 * alerts. The most recent graph is added and in active graphs are removed.
 	 * 
 	 * @param graph
 	 */
@@ -164,6 +177,13 @@ public class Correlator {
 		queue.add(earliestGraph);
 	}
 
+	/**
+	 * Compares alert_k (a newer alert) with older (yet active) alerts. If
+	 * alert_k cannot be correlated to any older alert, a new meta-alert is
+	 * formed.
+	 * 
+	 * @param alert_k
+	 */
 	private void correlate(Alert alert_k) {
 		// check the queue
 		Graph<Alert> closestGraph = null;
@@ -176,17 +196,17 @@ public class Correlator {
 		cal.setTime(alert_k.getStartTime());
 		cal.add(Calendar.MINUTE, -timeThreshold);
 
-		Date lowerBoundary = cal.getTime();
-		Date upperBoundary = alert_k.getStartTime();
+		Date earliestDateAllowed = cal.getTime();
 
 		PriorityQueue<Graph<Alert>> newestQueue = new PriorityQueue<Graph<Alert>>(
 				100, new RecentActivityComparator());
+		
 		while (!queue.isEmpty()) {
 			Graph<Alert> graph = queue.poll();
-			Date startTime = graph.getFirstNode().getElement().getStartTime();
-			Date endTime = graph.getFirstNode().getElement().getStartTime();
-
-			if (startTime.after(lowerBoundary) && endTime.before(upperBoundary)) {
+			
+			// Uses the time threshold to determine candidate correlations.
+			Date endDate = graph.getLastNode().getElement().getStartTime();
+			if (endDate.after(earliestDateAllowed)) {
 				Node<Alert> node_i = graph.getLastNode();
 				Alert alert_i = node_i.getElement();
 
@@ -199,7 +219,8 @@ public class Correlator {
 					closestNode = node_i;
 					maxThreshold = corr;
 				}
-				// add this graph to the new queue.
+				
+				// Dequeue and queue update.
 				newestQueue.add(graph);
 			}
 
@@ -266,7 +287,7 @@ public class Correlator {
 		return corr / weightSum;
 	}
 
-	// JAVA BEAN SETTERS and GETTERS
+	// Setters and getters.
 	public int getTimeThreshold() {
 		return timeThreshold;
 	}

@@ -3,6 +3,7 @@ package com.outmet;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -17,8 +18,8 @@ import com.outmet.data.Alert;
 /***
  * 
  * 
- * OutMet is a metric for prioritising intrusion alerts using correlation
- * and outlier analysis.
+ * OutMet is a metric for prioritising intrusion alerts using correlation and
+ * outlier analysis.
  * 
  * Given a set of intrusion alerts, OutMet assigns an outlier value to each
  * alert which can be used to indicate how high or low an alert should be
@@ -34,15 +35,14 @@ import com.outmet.data.Alert;
  * 
  */
 
-
 /**
- * Demos how outmet works. (Uses default settings)
- * This demo assumes all input alerts in the csv are sorted by start time
+ * Demos how outmet works. (Uses default settings). The number of meta-alerts
+ * and prioritised alerts are output at the end of the analysis This demo
+ * assumes all input alerts in the csv are sorted by start time
  */
 public class Demo {
-	private static final Logger log = Logger.getLogger(Demo.class
-			.getName());
-	
+	private static final Logger log = Logger.getLogger(Demo.class.getName());
+
 	private static List<Alert> readAlertsFromCSV(String filename,
 			String delimiter) {
 		List<Alert> alerts = new ArrayList<Alert>();
@@ -78,15 +78,52 @@ public class Demo {
 				e.printStackTrace();
 			}
 		}
-		log.log(Level.INFO, "Read " + alerts.size() + " alerts from: " + filename);
+		log.log(Level.INFO, "Read " + alerts.size() + " alerts from: "
+				+ filename);
 		return alerts;
+	}
+	
+	private static void writeAlertsToCSV(String filename, String delimiter, List<Alert> alerts) {
+		FileWriter writer;
+		try {
+			writer = new FileWriter(filename);
+		for (Alert alert : alerts) {
+			writer.append(Long.toString(alert.getStartTime().getTime()));
+			writer.append(delimiter);
+			writer.append(Long.toString(alert.getEndTime().getTime()));
+			writer.append(delimiter);
+			writer.append(alert.getKey());
+			writer.append(delimiter);
+			writer.append(alert.getName());
+			writer.append(delimiter);
+			writer.append(alert.getCategory());
+			writer.append(delimiter);
+			writer.append(alert.getSourceIP());
+			writer.append(delimiter);
+			writer.append(alert.getSourcePort());
+			writer.append(delimiter);
+			writer.append(alert.getDestIP());
+			writer.append(delimiter);
+			writer.append(alert.getDestPort());
+			writer.append(delimiter);
+			writer.append(Double.toString(alert.getOutMetPriority()));
+			writer.append("\n");
+		}
+		log.log(Level.INFO, "writing newly prioritised alerts to " + filename);
+		} catch (Exception e) {
+			log.log(Level.WARNING, "Error in writing results to file");
+		}
 	}
 
 	public static void main(String[] args) {
+		List<Alert> alerts = readAlertsFromCSV("data/sample_alerts.csv", ",");
 		Correlator correlator = new Correlator();
-		correlator.run(readAlertsFromCSV("data/sample_alerts.csv", ","));
+		correlator.run(alerts);
 
-		Prioritiser prioritiser = new Prioritiser(2, 5, correlator.getGraphs());
+		int k = Math.round(correlator.getGraphs().size() * 0.1f);
+		Prioritiser prioritiser = new Prioritiser(k, correlator.getGraphs());
 		prioritiser.run();
+		
+		writeAlertsToCSV("data/prioritised_sample_alerts.csv", ",", alerts);
 	}
 }

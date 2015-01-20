@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.outmet.data.Alert;
 import com.outmet.data.Graph;
@@ -28,23 +30,42 @@ import com.outmet.data.Node;
  * 
  */
 public class Prioritiser {
-
+	private static final Logger log = Logger.getLogger(Prioritiser.class
+			.getName());
+	
+	/**
+	 * An n-by-n distance matrix where n is the number of meta-alerts.
+	 */
 	protected double[][] distance;
+
+	/**
+	 * The local outlier factor values of each meta-alert where lof[i] belongs
+	 * to meta-alert[i].
+	 */
 	protected double[] lofs;
+
+	/**
+	 * The maximum local outlier factor in {lofs}
+	 */
 	protected double maxLof;
+
+	/**
+	 * The number of neighbors required to measure a meta-alerts lof.
+	 */
 	protected int k;
-	protected double threshold;
+
+	/**
+	 * The list of meta-alerts to prioritise.
+	 */
 	protected List<Graph<Alert>> graphs;
 
 	public Prioritiser() {
-		this.k = 1;
-		this.threshold = 1;
+		this.k = 0;
 		this.graphs = new ArrayList<Graph<Alert>>();
 	}
 
-	public Prioritiser(int k, double threshold, List<Graph<Alert>> graphs) {
+	public Prioritiser(int k, List<Graph<Alert>> graphs) {
 		this.k = k;
-		this.threshold = threshold;
 		this.graphs = graphs;
 	}
 
@@ -52,18 +73,22 @@ public class Prioritiser {
 		calculateDistanceMatrix();
 		calculateOutMet();
 		updateAlerts();
+		printStatistics();
 	}
 
+	/**
+	 * Computes the distance matrix.
+	 */
 	protected void calculateDistanceMatrix() {
 		int n = graphs.size();
 		distance = new double[n][n];
-		
+
 		for (int i = 0; i < n; i++) {
 			distance[i] = new double[n];
 		}
 
 		for (int i = 0; i < n; i++) {
-			for (int j = 0; j < n - i; j++) {
+			for (int j = i; j < n; j++) {
 				if (i == j)
 					continue;
 				try {
@@ -80,7 +105,13 @@ public class Prioritiser {
 		}
 	}
 
+	/**
+	 * 
+	 */
 	protected void calculateOutMet() {
+		if (k <= 0) {
+			return;
+		}
 
 		int n = distance.length;
 		lofs = new double[n];
@@ -97,9 +128,8 @@ public class Prioritiser {
 			double[] distances = distance[i];
 			double[] orderedDistances = Arrays.copyOf(distances, n);
 
-			// k-distinct distances.
 			Arrays.sort(orderedDistances);
-			double kDistance = orderedDistances[k-1];
+			double kDistance = orderedDistances[k - 1];
 			kDistances[i] = kDistance;
 		}
 
@@ -161,12 +191,28 @@ public class Prioritiser {
 
 	}
 
+	/**
+	 * Updates alerts with new priorities. Each alert is assigned the priority
+	 * of its parent meta-alert.
+	 */
 	private void updateAlerts() {
 		int i = 0;
 		for (Graph<Alert> graph : graphs) {
 			for (Node<Alert> alert : graph.getNodes()) {
 				double l = lofs[i] / maxLof;
-				int priority = (int) (Math.round(l * 4));
+				int priority;
+
+				// Maps the scaled lof to discrete priority value where 1 ==
+				// high priority, 4 == low priority
+				if (l >= 0.75) {
+					priority = 4;
+				} else if (l >= 0.5) {
+					priority = 3;
+				} else if (l >= 0.25) {
+					priority = 2;
+				} else {
+					priority = 1;
+				}
 				alert.getElement().setOutMetPriority(priority);
 			}
 			i++;
@@ -179,14 +225,6 @@ public class Prioritiser {
 
 	public void setK(int k) {
 		this.k = k;
-	}
-
-	public double getThreshold() {
-		return threshold;
-	}
-
-	public void setThreshold(double threshold) {
-		this.threshold = threshold;
 	}
 
 	public double[] getLofs() {
@@ -212,9 +250,9 @@ public class Prioritiser {
 	public void getGraphs(List<Graph<Alert>> graphs) {
 		this.graphs = graphs;
 	}
-	
-	private void printStatistics(){
-		//TODO: log how many alerts where found as outliers.
+
+	private void printStatistics() {
+		log.log(Level.INFO, "Prioritised " + graphs.size() + " meta-alerts");
 	}
 
 }
